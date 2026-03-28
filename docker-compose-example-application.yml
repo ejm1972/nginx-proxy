@@ -1,0 +1,27 @@
+version: '3'
+services:
+  web:
+    image: nginx
+    volumes:
+      - "./web.conf:/etc/web/conf.d/default.conf"
+      - "../APP_DIR:/var/www/html"
+    networks:
+      - default
+      - proxy
+    environment:
+      VIRTUAL_HOST: "${APP_VHOST}"
+    #restart: always ---> solo en produccion
+
+  php:
+    build: ./php/     #o image: [image_name] si es una pre armada
+    volumes:
+      - "../APP_DIR:/var/www/html"
+    environment:
+      DEBUG: 0
+      DATABASE_URL: "mysql://${DB_USERNAME}:${DB_PASSWORD}@${DB_HOST}/${DB_NAME}"
+    #restart: always ---> solo en produccion
+
+networks:
+  proxy:
+    external:
+      name: nginx-proxy
