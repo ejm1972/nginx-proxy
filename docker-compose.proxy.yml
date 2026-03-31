@@ -1,0 +1,47 @@
+#name: nginx-proxy
+name: nginx-proxy
+services:
+
+  nginx-proxy:
+    image: jwilder/nginx-proxy:latest
+    container_name: proxy_nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - "./nginx-custom.conf:/etc/nginx/conf.d/custom-settings.conf"
+      - "/var/run/docker.sock:/tmp/docker.sock:ro"
+      - "certs:/etc/nginx/certs"               # certificados Let's Encrypt
+      - "vhost:/etc/nginx/vhost.d"             # configs por vhost
+      - "html:/usr/share/nginx/html"           # desafío ACME
+    restart: always
+    networks:
+      - proxy_net
+
+  acme-companion:
+    image: nginxproxy/acme-companion:latest
+    container_name: proxy_acme
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+      - "certs:/etc/nginx/certs"
+      - "vhost:/etc/nginx/vhost.d"
+      - "html:/usr/share/nginx/html"
+      - "acme:/etc/acme.sh"
+    environment:
+      - DEFAULT_EMAIL=admin@coninf.com.ar      # ← tu email para notificaciones de renovación
+    depends_on:
+      - nginx-proxy
+    restart: always
+    networks:
+      - proxy_net
+
+volumes:
+  certs:
+  vhost:
+  html:
+  acme:
+
+networks:
+  proxy_net:
+    name: nginx-proxy_net
+    driver: bridge
