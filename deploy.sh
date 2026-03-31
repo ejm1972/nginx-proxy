@@ -1,94 +1,74 @@
 #!/bin/bash
 # =============================================================================
-# deploy.sh — Deploy de nginx-proxy a VPS
+# deploy.sh — Deploy del proxy reverso al VPS
+# Repo: nginx-proxy
 # Uso: ./deploy.sh [IP_DEL_VPS]
-# Ejemplo: ./deploy.sh 123.456.789.0
+# Requiere haber corrido setup.sh primero
 # =============================================================================
 
-set -e  # detener si cualquier comando falla
+set -e
 
-# ── Configuración ─────────────────────────────────────────────────────────────
-DOMINIO="ada.coninf.com.ar"
-VPS_IP="${1}"                        # se pasa como argumento
-VPS_USER="deploy"                    # usuario creado por setup.sh
-REMOTE_DIR="/opt/apps/nginx-proxy"
-APP_DIR="."       # ruta local al código PHP
+VPS_IP="${1}"
+VPS_USER="deploy"
+PROXY_DIR="/srv/proxy"
 
-# ── Validaciones ──────────────────────────────────────────────────────────────
-if [ -z "$VPS_IP" ]; then
-  echo "❌ Falta la IP del VPS. Uso: ./deploy.sh [IP_DEL_VPS]"
-  exit 1
+GREEN='\033[0;32m'; YELLOW='\033[1;33m'; RED='\033[0;31m'; NC='\033[0m'
+ok()   { echo -e "${GREEN}✅ $1${NC}"; }
+warn() { echo -e "${YELLOW}⚠️  $1${NC}"; }
+err()  { echo -e "${RED}❌ $1${NC}"; exit 1; }
+
+[ -z "$VPS_IP" ] && err "Falta la IP del VPS. Uso: ./deploy.sh [IP_DEL_VPS]"
+
+echo ""
+echo "============================================="
+echo "  Deploy proxy reverso → $VPS_IP"
+echo "============================================="
+echo ""
+
+# ── 1. Copiar archivos ────────────────────────────────────────────────────────
+echo "📤 Copiando archivos del proxy..."
+scp docker-compose.proxy.yml "$VPS_USER@$VPS_IP:$PROXY_DIR/docker-compose.proxy.yml"
+
+# nginx-custom.conf es opcional
+if [ -f "nginx-custom.conf" ]; then
+  scp nginx-custom.conf "$VPS_USER@$VPS_IP:$PROXY_DIR/nginx-custom.conf"
+  ok "nginx-custom.conf copiado"
+else
+  warn "nginx-custom.conf no encontrado, saltando..."
 fi
+ok "Archivos del proxy copiados"
 
-if [ ! -f ".env" ]; then
-  echo "❌ No existe el archivo .env. Copiá .env.example y completalo."
-  exit 1
-fi
-
-echo "🚀 Iniciando deploy en $VPS_IP..."
-
-# ── 1. Instalar Docker en el VPS (solo la primera vez) ────────────────────────
-echo "📦 Verificando Docker en el VPS..."
-ssh "$VPS_USER@$VPS_IP" '
-  if ! command -v docker &> /dev/null; then
-    echo "Instalando Docker..."
-    apt update && apt install -y docker.io docker-compose-plugin
-    systemctl enable docker
-    systemctl start docker
-    echo "✅ Docker instalado"
-  else
-    echo "✅ Docker ya está instalado"
-  fi
-'
-
-# ── 2. Crear estructura de directorios en el VPS ──────────────────────────────
-echo "📁 Creando directorios en el VPS..."
-ssh "$VPS_USER@$VPS_IP" "mkdir -p $REMOTE_DIR"
-
-# ── 3. Copiar archivos de configuración ───────────────────────────────────────
-echo "📤 Copiando archivos de configuración..."
-scp docker-compose.yml "$VPS_USER@$VPS_IP:$REMOTE_DIR/docker-compose.yml"
-scp nginx-custom.conf        "$VPS_USER@$VPS_IP:$REMOTE_DIR/nginx-custom.conf"
-
-# ── 5. Levantar contenedores ──────────────────────────────────────────────────
-echo "🐳 Levantando contenedores (solo HTTP por ahora)..."
+# ── 2. Levantar / actualizar proxy ───────────────────────────────────────────
+echo "🔀 Levantando proxy reverso..."
 ssh "$VPS_USER@$VPS_IP" "
-  cd $REMOTE_DIR
-  docker compose up -d
+  cd $PROXY_DIR
+  docker compose -f docker-compose.proxy.yml up -d --remove-orphans
 "
+ok "Proxy reverso activo (nginx-proxy + acme-companion)"
 
-# ── 6. Obtener certificado SSL (solo si no existe) ────────────────────────────
-echo "🔒 Verificando certificado SSL..."
+# ── 3. Verificar red compartida ───────────────────────────────────────────────
+echo "🌐 Verificando red nginx-proxy_net..."
 ssh "$VPS_USER@$VPS_IP" "
-  if [ ! -f /etc/letsencrypt/live/$DOMINIO/fullchain.pem ]; then
-    echo 'Obteniendo certificado Let'\''s Encrypt...'
-    docker compose -f $REMOTE_DIR/docker-compose.yml run --rm certbot certonly \
-      --webroot \
-      --webroot-path=/var/www/certbot \
-      --email admin@$DOMINIO \
-      --agree-tos \
-      --no-eff-email \
-      -d $DOMINIO \
-      -d www.$DOMINIO
-
-    echo 'Restaurando configuración HTTPS en nginx...'
-    sed -i 's/^#TEMP# //' $REMOTE_DIR/nginx.prod.conf
-    docker compose -f $REMOTE_DIR/docker-compose.yml exec nginx nginx -s reload
-    echo '✅ SSL configurado correctamente'
+  if ! docker network inspect nginx-proxy_net &>/dev/null; then
+    docker network create nginx-proxy_net
+    echo 'Red creada'
   else
-    echo '✅ Certificado ya existe, saltando...'
-    # En redeploys, solo recargar nginx
-    docker compose -f $REMOTE_DIR/docker-compose.yml exec nginx nginx -s reload
+    echo 'Red ya existe'
   fi
 "
+ok "Red nginx-proxy_net disponible"
 
-# ── 7. Verificación final ─────────────────────────────────────────────────────
+# ── 4. Resumen ────────────────────────────────────────────────────────────────
 echo ""
-echo "✅ Deploy completado"
-echo "🌐 Tu app está en: https://$DOMINIO"
+echo "============================================="
+ok "Deploy del proxy completado"
+echo "============================================="
 echo ""
-echo "Comandos útiles en el VPS:"
-echo "  Ver logs:       docker compose logs -f"
-echo "  Ver estado:     docker compose ps"
-echo "  Reiniciar:      docker compose restart"
-echo "  Apagar:         docker compose down"
+echo "Logs del proxy:       docker logs proxy_nginx -f"
+echo "Logs SSL (acme):      docker logs proxy_acme -f"
+echo "Estado contenedores:  docker ps"
+echo ""
+echo "Siguiente paso — deploy de la app aikido:"
+echo "  cd ../aikido-asociacion-docker"
+echo "  ./deploy.sh $VPS_IP"
+echo ""

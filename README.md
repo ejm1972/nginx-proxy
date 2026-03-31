@@ -1,12 +1,60 @@
-# Nginx
+# nginx-proxy
 
-docker nginx proxy reverso
+Proxy reverso Docker con SSL automático via Let's Encrypt.
+Basado en [jwilder/nginx-proxy](https://github.com/nginx-proxy/nginx-proxy) + [acme-companion](https://github.com/nginx-proxy/acme-companion).
 
-# La red por default debe configurarse en el docker mismo para que no haya superposiciones
-#los nombres de los servicios pueden armarse con un prefijo de la aplicacion de 3 caracteres + "_web" o "_php" segun corresponda
+## Estructura
 
-#las BD, ya sea mysql o postgres o sqlserver debería estar fuera del docker de la aplicacion pero podrían estar:
-1-En el mismo host server con contenerdores docker independientes para cada BD
-2-En un host server exclusivo para BD con con contenedores docker independientes o centralizado
+```
+nginx-proxy/
+├── docker-compose.proxy.yml   — proxy + acme-companion
+├── nginx-custom.conf          — configuración extra de nginx (opcional)
+├── setup.sh                   — setup inicial del VPS (correr una vez como root)
+└── deploy.sh                  — deploy/actualización del proxy
+```
 
-#Pero deberían estar fuera del stack de la aplicación
+## Primer uso
+
+```bash
+# 1. En el VPS como root (una sola vez)
+bash setup.sh
+
+# 2. Desde tu máquina local
+./deploy.sh IP_DEL_VPS
+```
+
+## Agregar una nueva app al proxy
+
+En el `docker-compose` de la app, el servicio web debe tener:
+
+```yaml
+environment:
+  - VIRTUAL_HOST=miapp.com
+  - VIRTUAL_PORT=80
+  - LETSENCRYPT_HOST=miapp.com
+  - LETSENCRYPT_EMAIL=admin@miapp.com
+
+networks:
+  - proxy_net
+
+networks:
+  proxy_net:
+    external: true
+    name: nginx-proxy_net
+```
+
+## Comandos útiles
+
+```bash
+# Ver estado
+docker ps
+
+# Logs del proxy
+docker logs proxy_nginx -f
+
+# Logs de SSL
+docker logs proxy_acme -f
+
+# Reiniciar proxy
+docker compose -f /srv/proxy/docker-compose.proxy.yml restart
+```

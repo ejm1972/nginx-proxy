@@ -1,4 +1,3 @@
-#name: nginx-proxy
 name: nginx-proxy
 services:
 
@@ -11,9 +10,9 @@ services:
     volumes:
       - "./nginx-custom.conf:/etc/nginx/conf.d/custom-settings.conf"
       - "/var/run/docker.sock:/tmp/docker.sock:ro"
-      - "certs:/etc/nginx/certs"               # certificados Let's Encrypt
-      - "vhost:/etc/nginx/vhost.d"             # configs por vhost
-      - "html:/usr/share/nginx/html"           # desafío ACME
+      - "certs:/etc/nginx/certs"
+      - "vhost:/etc/nginx/vhost.d"
+      - "html:/usr/share/nginx/html"
     restart: always
     networks:
       - proxy_net
@@ -28,7 +27,7 @@ services:
       - "html:/usr/share/nginx/html"
       - "acme:/etc/acme.sh"
     environment:
-      - DEFAULT_EMAIL=admin@coninf.com.ar      # ← tu email para notificaciones de renovación
+      - DEFAULT_EMAIL=admin@coninf.com.ar
     depends_on:
       - nginx-proxy
     restart: always
