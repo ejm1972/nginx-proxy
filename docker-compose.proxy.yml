@@ -3,19 +3,19 @@ services:
 
   nginx-proxy:
     image: jwilder/nginx-proxy:latest
-    container_name: proxy_nginx
+    container_name: nginx-proxy
     ports:
       - "80:80"
       - "443:443"
     volumes:
-      - "./nginx-custom.conf:/etc/nginx/conf.d/custom-settings.conf"
       - "/var/run/docker.sock:/tmp/docker.sock:ro"
+      - "./nginx-custom.conf:/etc/nginx/conf.d/custom-settings.conf"
       - "certs:/etc/nginx/certs"
       - "vhost:/etc/nginx/vhost.d"
       - "html:/usr/share/nginx/html"
     restart: always
     networks:
-      - proxy_net
+      - proxy
 
   acme-companion:
     image: nginxproxy/acme-companion:latest
@@ -27,12 +27,12 @@ services:
       - "html:/usr/share/nginx/html"
       - "acme:/etc/acme.sh"
     environment:
-      - DEFAULT_EMAIL=admin@coninf.com.ar
+      DEFAULT_EMAIL: "${DEFAULT_EMAIL}"
     depends_on:
       - nginx-proxy
     restart: always
     networks:
-      - proxy_net
+      - proxy
 
 volumes:
   certs:
@@ -41,6 +41,7 @@ volumes:
   acme:
 
 networks:
-  proxy_net:
+  proxy:
+    external: true
     name: nginx-proxy_net
     driver: bridge
