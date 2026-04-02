@@ -28,6 +28,7 @@ echo ""
 # ── 1. Copiar archivos ────────────────────────────────────────────────────────
 echo "📤 Copiando archivos del proxy..."
 scp docker-compose.proxy.yml "$VPS_USER@$VPS_IP:$PROXY_DIR/docker-compose.proxy.yml"
+scp .env "$VPS_USER@$VPS_IP:$PROXY_DIR/.env"
 
 # nginx-custom.conf es opcional
 if [ -f "nginx-custom.conf" ]; then
@@ -46,17 +47,18 @@ ssh "$VPS_USER@$VPS_IP" "
 "
 ok "Proxy reverso activo (nginx-proxy + acme-companion)"
 
-# ── 3. Verificar red compartida ───────────────────────────────────────────────
-echo "🌐 Verificando red nginx-proxy_net..."
-ssh "$VPS_USER@$VPS_IP" "
-  if ! docker network inspect nginx-proxy_net &>/dev/null; then
-    docker network create nginx-proxy_net
-    echo 'Red creada'
-  else
-    echo 'Red ya existe'
-  fi
-"
-ok "Red nginx-proxy_net disponible"
+# ── 3. Verificar red compartida ── queda creadar dentro del docker compose ─────────────────────────────────────────────
+#echo "🌐 Verificando red nginx-proxy_net..."
+#ssh "$VPS_USER@$VPS_IP" "
+#  if ! docker network inspect nginx-proxy_net &>/dev/null; then
+#    docker network create nginx-proxy_net
+#    echo 'Red creada'
+#  else
+#    echo 'Red ya existe'
+#  fi
+#"
+#ok "Red nginx-proxy_net disponible"
+# ── 3. Verificar red compartida ── queda creadar dentro del docker compose ─────────────────────────────────────────────
 
 # ── 4. Resumen ────────────────────────────────────────────────────────────────
 echo ""

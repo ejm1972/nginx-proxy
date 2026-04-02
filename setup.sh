@@ -82,7 +82,7 @@ mkdir -p $PROXY_DIR
 chown -R $APP_USER:$APP_USER $PROXY_DIR
 ok "Directorio $PROXY_DIR creado"
 
-# ── 6. Red compartida del proxy ── La comento para que la red se creada con el docker compose ─────────────────────────────────────────────
+# ── 6. Red compartida del proxy ── La red se crea con el docker compose ─────────────────────────────────────────────
 #echo ""
 #echo "🌐 Creando red Docker compartida..."
 #if docker network inspect nginx-proxy_net &>/dev/null; then
@@ -91,7 +91,7 @@ ok "Directorio $PROXY_DIR creado"
 #  docker network create nginx-proxy_net
 #  ok "Red 'nginx-proxy_net' creada"
 #fi
-# ── 6. Red compartida del proxy ── La comento para que la red se creada con el docker compose ─────────────────────────────────────────────
+# ── 6. Red compartida del proxy ── La red se crea con el docker compose ─────────────────────────────────────────────
 
 # ── 7. Resumen ────────────────────────────────────────────────────────────────
 VPS_IP=$(curl -s ifconfig.me 2>/dev/null || echo 'IP_DEL_VPS')
