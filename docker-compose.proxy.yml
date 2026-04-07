@@ -46,4 +46,3 @@ networks:
   proxy:
     name: nginx-proxy_net
     driver: bridge
-    
